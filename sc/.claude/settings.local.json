@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "PowerShell(pip install fastapi uvicorn python-dotenv llama-index llama-index-embeddings-huggingface llama-index-llms-groq llama-index-vector-stores-chroma chromadb 2>&1)",
+      "Bash(npm --version)",
+      "PowerShell(cd C:\\\\ALFONSO\\\\U\\\\basadas; npm create vite@latest sc-frontend -- --template react-ts 2>&1)"
+    ]
+  }
+}
