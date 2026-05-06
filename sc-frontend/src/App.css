@@ -107,6 +107,27 @@ body {
   overflow: hidden;
 }
 
+.file-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.file-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.file-icon {
+  flex-shrink: 0;
+}
+
 .file-name {
   overflow: hidden;
   text-overflow: ellipsis;

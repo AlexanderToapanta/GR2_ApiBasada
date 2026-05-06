@@ -1,8 +1,15 @@
 const BASE = "http://127.0.0.1:8000";
 
-export async function sendMessage(question: string): Promise<string> {
-  const res = await fetch(`${BASE}/chat/?pregunta=${encodeURIComponent(question)}`, {
+export async function sendMessage(question: string, selectedDocs?: string[]): Promise<string> {
+  const res = await fetch(`${BASE}/chat/`, {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      pregunta: question,
+      selected_docs: selectedDocs || []
+    })
   });
   if (!res.ok) throw new Error(await res.text());
   const data = await res.json();
@@ -16,4 +23,11 @@ export async function ingestFile(file: File): Promise<string> {
   if (!res.ok) throw new Error(await res.text());
   const data = await res.json();
   return data.filename;
+}
+
+export async function getDocuments(): Promise<any[]> {
+  const res = await fetch(`${BASE}/documents/`);
+  if (!res.ok) throw new Error(await res.text());
+  const data = await res.json();
+  return data.documents || [];
 }

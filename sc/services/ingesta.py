@@ -1,4 +1,5 @@
 import os
+import json
 from dotenv import load_dotenv
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, StorageContext, Settings
 from llama_index.llms.groq import Groq
@@ -16,8 +17,25 @@ Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
 DB_PATH = "./data/chroma_db"
 COLLECTION_NAME = "documentos_usuario"
+DOCUMENTS_METADATA_FILE = "./data/documents_metadata.json"
 
-def procesar_y_almacenar(directorio_archivos: str):
+def get_documents_metadata():
+    """Lee el archivo de metadata de documentos"""
+    if os.path.exists(DOCUMENTS_METADATA_FILE):
+        try:
+            with open(DOCUMENTS_METADATA_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_documents_metadata(metadata: dict):
+    """Guarda el archivo de metadata de documentos"""
+    os.makedirs(os.path.dirname(DOCUMENTS_METADATA_FILE), exist_ok=True)
+    with open(DOCUMENTS_METADATA_FILE, "w") as f:
+        json.dump(metadata, f, indent=2)
+
+def procesar_y_almacenar(directorio_archivos: str, filename: str = None):
     reader = SimpleDirectoryReader(directorio_archivos)
     documents = reader.load_data()
 
@@ -29,5 +47,15 @@ def procesar_y_almacenar(directorio_archivos: str):
     index = VectorStoreIndex.from_documents(
         documents, storage_context=storage_context
     )
+    
+    # Guardar metadata del documento
+    metadata = get_documents_metadata()
+    doc_id = filename or f"doc_{len(metadata) + 1}"
+    metadata[doc_id] = {
+        "filename": filename or "unknown",
+        "num_docs": len(documents),
+        "status": "processed"
+    }
+    save_documents_metadata(metadata)
     
     return f"Procesados {len(documents)} documentos con éxito usando Groq." 

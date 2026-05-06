@@ -8,14 +8,26 @@ from llama_index.core import Settings
 from llama_index.core import VectorStoreIndex, Settings
 from llama_index.core.prompts import PromptTemplate
 from llama_index.llms.groq import Groq
+import json
 
 load_dotenv()
 
 # Reutilizamos la misma configuración de persistencia
 DB_PATH = "./data/chroma_db"
 COLLECTION_NAME = "documentos_usuario"
+DOCUMENTS_METADATA_FILE = "./data/documents_metadata.json"
 
-def consultar_chat(pregunta: str):
+def get_documents_metadata():
+    """Lee el archivo de metadata de documentos"""
+    if os.path.exists(DOCUMENTS_METADATA_FILE):
+        try:
+            with open(DOCUMENTS_METADATA_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def consultar_chat(pregunta: str, selected_docs: list = None):
     # 1. Conectar a la DB existente
     db = chromadb.PersistentClient(path=DB_PATH)
     chroma_collection = db.get_or_create_collection(COLLECTION_NAME)

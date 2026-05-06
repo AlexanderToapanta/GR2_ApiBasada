@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { sendMessage, ingestFile } from "./api";
-import type { Message } from "./types";
+import { sendMessage, ingestFile, getDocuments } from "./api";
+import type { Message, Document } from "./types";
 import "./App.css";
 
 let nextId = 1;
+
+const STORAGE_KEY = "uploadedFiles";
+const SELECTED_DOCS_KEY = "selectedDocs";
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([
@@ -18,25 +21,82 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Cargar documentos del backend al inicializar
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    loadDocuments();
+    // Cargar archivos guardados en localStorage
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      setUploadedFiles(JSON.parse(saved));
+    }
+    const savedSelected = localStorage.getItem(SELECTED_DOCS_KEY);
+    if (savedSelected) {
+      setSelectedDocs(new Set(JSON.parse(savedSelected)));
+    }
+  }, []);
+
+  // Auto-select primero doc si hay solo uno
+  useEffect(() => {
+    if (documents.length > 0 && selectedDocs.size === 0) {
+      const firstDoc = documents[0]?.filename;
+      if (firstDoc) {
+        const newSelected = new Set([firstDoc]);
+        setSelectedDocs(newSelected);
+        localStorage.setItem(SELECTED_DOCS_KEY, JSON.stringify(Array.from(newSelected)));
+      }
+    }
+  }, [documents, selectedDocs]);
+
+  // Persistir archivos en localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(uploadedFiles));
+  }, [uploadedFiles]);
+
+  async function loadDocuments() {
+    try {
+      const docs = await getDocuments();
+      setDocuments(docs);
+    } catch (e) {
+      console.error("Error cargando documentos:", e);
+    }
+  }
 
   function push(msg: Omit<Message, "id" | "ts">) {
     setMessages((prev) => [...prev, { ...msg, id: nextId++, ts: new Date() }]);
   }
 
+  function toggleDocument(filename: string) {
+    setSelectedDocs((prev) => {
+      const newSelected = new Set(prev);
+      if (newSelected.has(filename)) {
+        newSelected.delete(filename);
+      } else {
+        newSelected.add(filename);
+      }
+      localStorage.setItem(SELECTED_DOCS_KEY, JSON.stringify(Array.from(newSelected)));
+      return newSelected;
+    });
+  }
+
   async function handleSend() {
     const q = input.trim();
     if (!q || loading) return;
+    
+    if (selectedDocs.size === 0) {
+      push({ role: "assistant", content: "⚠️ Selecciona al menos un documento para hacer preguntas." });
+      return;
+    }
+
     setInput("");
     push({ role: "user", content: q });
     setLoading(true);
     try {
-      const answer = await sendMessage(q);
+      const answer = await sendMessage(q, Array.from(selectedDocs));
       push({ role: "assistant", content: answer });
     } catch (e) {
       push({ role: "assistant", content: `⚠️ Error: ${(e as Error).message}` });
@@ -53,6 +113,8 @@ export default function App() {
     try {
       const name = await ingestFile(file);
       setUploadedFiles((prev) => [...prev, name]);
+      // Recargar documentos del backend
+      await loadDocuments();
       push({ role: "assistant", content: `✅ **${name}** ingestado. Ya puedes hacer preguntas.` });
     } catch (e) {
       push({ role: "assistant", content: `⚠️ Error al ingestar: ${(e as Error).message}` });
@@ -68,6 +130,10 @@ export default function App() {
       handleSend();
     }
   }
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   return (
     <div className="app">
@@ -94,13 +160,22 @@ export default function App() {
             onChange={handleFile}
           />
           <ul className="file-list">
-            {uploadedFiles.map((f) => (
-              <li key={f} className="file-item">
-                <span className="file-icon">📄</span>
-                <span className="file-name">{f}</span>
+            {documents.map((doc) => (
+              <li key={doc.id} className="file-item">
+                <input
+                  type="checkbox"
+                  id={`doc-${doc.id}`}
+                  checked={selectedDocs.has(doc.filename)}
+                  onChange={() => toggleDocument(doc.filename)}
+                  className="file-checkbox"
+                />
+                <label htmlFor={`doc-${doc.id}`} className="file-label">
+                  <span className="file-icon">📄</span>
+                  <span className="file-name">{doc.filename}</span>
+                </label>
               </li>
             ))}
-            {uploadedFiles.length === 0 && (
+            {documents.length === 0 && (
               <li className="file-empty">Sin documentos aún</li>
             )}
           </ul>

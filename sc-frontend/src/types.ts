@@ -4,3 +4,9 @@ export interface Message {
   content: string;
   ts: Date;
 }
+
+export interface Document {
+  id: string;
+  filename: string;
+  status: string;
+}
